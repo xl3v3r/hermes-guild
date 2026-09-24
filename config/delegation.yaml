@@ -1,0 +1,7 @@
+# Hermes Guild — delegation settings (v1.2)
+# Apply with:  hermes config set delegation.max_spawn_depth 1
+# Or merge into ~/.hermes/config.yaml
+delegation:
+  max_spawn_depth: 1        # 1 = flat (default). 2-3 only for SotG-approved
+                             # cross-group missions (e.g. severity-1 incident).
+  # role="orchestrator" lets a child spawn its own workers, gated by depth.
