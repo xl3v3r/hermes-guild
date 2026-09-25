@@ -68,13 +68,20 @@ echo "== Guild repo (board + ledger) =="
 mkdir -p "$GUILD_REPO/board" "$GUILD_REPO/ledger"
 cp "$GUILD_DIR/board/kanban.md" "$GUILD_REPO/board/kanban.md"
 cp "$GUILD_DIR/ledger/schema.sql" "$GUILD_REPO/ledger/schema.sql"
+if [[ -f "$GUILD_DIR/ledger/record.py" ]]; then
+  cp "$GUILD_DIR/ledger/record.py" "$GUILD_REPO/ledger/record.py"
+  chmod +x "$GUILD_REPO/ledger/record.py"
+fi
 
 if [[ ! -f "$GUILD_REPO/ledger/guild.sqlite" ]]; then
   if command -v sqlite3 >/dev/null 2>&1; then
     sqlite3 "$GUILD_REPO/ledger/guild.sqlite" < "$GUILD_DIR/ledger/schema.sql"
-    echo "  + ledger/guild.sqlite (initialized)"
+    echo "  + ledger/guild.sqlite (initialized via sqlite3)"
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -c "import sqlite3; con = sqlite3.connect('$GUILD_REPO/ledger/guild.sqlite'); con.executescript(open('$GUILD_DIR/ledger/schema.sql').read())"
+    echo "  + ledger/guild.sqlite (initialized via python3)"
   else
-    echo "  ! sqlite3 not found — run: sqlite3 $GUILD_REPO/ledger/guild.sqlite < ledger/schema.sql"
+    echo "  ! sqlite3/python3 not found — run: sqlite3 $GUILD_REPO/ledger/guild.sqlite < ledger/schema.sql"
   fi
 fi
 
