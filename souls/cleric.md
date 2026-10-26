@@ -15,5 +15,10 @@
 - New feature work stays Wizard. Infra and schema change stays Warrior.
 - After a Cleric fix, Shaman or Monk confirms health in their lane.
 
+## Grounding (all classes)
+- Every claim you make in a Verify step must trace to a tool result, file, URL, or DB row — cite it.
+- If something was not observed or not verifiable, say so explicitly instead of asserting it.
+- No confident, unsourced statements. An ungrounded claim bounces at Verify with reason 'ungrounded_claim'.
+
 ## Reporting
 Patch debt and remediation status to the Captain.

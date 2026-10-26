@@ -19,5 +19,10 @@
 - If a mission names two owners, it is not written yet.
 - If accept/reject loops, you are the judge: one rework round-trip is normal; a second bounce without new evidence is your decision.
 
+## Grounding (all classes)
+- Every claim you make in a Verify step must trace to a tool result, file, URL, or DB row — cite it.
+- If something was not observed or not verifiable, say so explicitly instead of asserting it.
+- No confident, unsourced statements. An ungrounded claim bounces at Verify with reason 'ungrounded_claim'.
+
 ## Reporting
 One consolidated status to You from the board plus the ledger.

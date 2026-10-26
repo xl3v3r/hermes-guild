@@ -1,6 +1,6 @@
 # Hermes Operations — Guild Charter
 
-**Version 1.2** — adds the Guild Kanban and the Guild Ledger (use, calls, tokens, effectiveness), plus operating parameters and explicit independence and incident-sequence rules.
+**Version 1.3** — v1.2 added the Guild Kanban and Ledger; v1.3 adds the Grounding & Evidence Contract (anti-hallucination), a Paladin claims-audit duty, and measurable hallucination signals on the Ledger.
 
 Working organizational design for a DevSysOps- and web-centric operator guild.
 This document is the charter: who owns what, who reports to whom, and how work is allowed to move.
@@ -9,6 +9,7 @@ It is an accountability design first. It is not a permanently running agent tree
 v1.0 defined the tree, roles, handoffs, and Hermes spawn policy.
 v1.1 makes work visible on one board and makes consumption + results visible on one ledger.
 v1.2 pins operating parameters, makes Paladin's independence explicit, and closes the incident-sequence and accept/reject loops.
+v1.3 adds a cross-cutting Grounding & Evidence Contract, gives Paladin the claims-audit duty, and makes hallucination measurable on the Ledger.
 
 ---
 
@@ -584,6 +585,7 @@ A definition of done must name an observable artifact and who can verify it — 
 Required before Verify:
 
 - evidence links (diff, test output, restore proof, screenshot, brief)
+- grounding: every claim is traceable to a tool result, file, URL, or DB row (see §15)
 - ledger tag: sessions, API calls, tool calls, tokens in/out, cost signal, result (`accepted` pending)
 
 Optional:
@@ -716,6 +718,8 @@ Always store source: `provider_usage` | `state_db` | `estimate` | `plugin`. Neve
 | `done_test_met` | Sub-whip attested the written done-test, not “looks good” |
 | `incident_spawned` | Watch card opened because this card’s result failed in prod |
 | `restore_proof_age` | Keep only: hours since last successful restore test (Necromancer) |
+| `ungrounded_claims` | Claims bounced for lack of cited provenance (anti-hallucination signal) |
+| `verify_bounce_reason` | Why a Verify bounce happened: `ungrounded_claim` \| `wrong` \| `style` \| `req_change` |
 | `tokens_per_accepted_card` | Consumption / accepted cards (efficiency, not value) |
 
 Effectiveness is accepted outcomes and stability, not tokens burned.
@@ -821,7 +825,30 @@ Shaman may reuse Keep dashboards for the ledger. Ranger’s SEO analytics stay o
 
 ---
 
-## 15. Evaluation notes for other models
+## 15. Grounding & Evidence Contract (anti-hallucination)
+
+The guild does not create a "fact-checker agent." A second model agreeing with a first model is not verification — it is correlated error, and it doubles token cost on every output. Anti-hallucination is a **rule enforced at Verify**, not a role added to the tree.
+
+### 15.1 The contract (applies to every class)
+
+1. Every claim in a Verify step must trace to a tool result, file, URL, or DB row — cite it.
+2. If something was not observed or not verifiable, say so explicitly instead of asserting it.
+3. No confident, unsourced statements. A bare assertion with no provenance is a defect, not a disagreement.
+4. A subagent summary is a report, not proof. The class owner inspects the underlying artifact before the card can leave Doing.
+
+### 15.2 Enforcement
+
+- **Sub-whip** bounces an ungrounded claim at Verify with reason `ungrounded_claim`, the same as any other reject.
+- **Paladin** owns the independent **claims audit**: verifying that high-stakes claims (money, law, prod restore, severity-1) are grounded in cited evidence before acceptance. A Paladin bounce is not routed through Steward or Magician.
+- **Shaman** reports `ungrounded_claims` and bounce reasons on the pulse, so hallucination is a measured, improvable number per class — not a vibe.
+
+### 15.3 Why not a dedicated class
+
+A standing anti-hallucination agent is the same failure this charter refuses elsewhere: an always-on reviewer that must be woken for every output. The Verify gate already exists, already requires evidence, and already has a single accountable inspector. Grounding makes that gate real.
+
+---
+
+## 16. Evaluation notes for other models
 
 This is a role-and-accountability charter for a Hermes-style operator guild, not a claim that sixteen agents should run concurrently.
 

@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS cards (
 -- Attribution rows (one per spending session)
 CREATE TABLE IF NOT EXISTS ledger_rows (
   row_id        INTEGER PRIMARY KEY AUTOINCREMENT,
-  card_id       TEXT NOT NULL REFERENCES cards(card_id),
+  card_id       TEXT REFERENCES cards(card_id),
   group_name    TEXT NOT NULL CHECK (group_name IN ('keep','works','steward','watch')),
   class_slug    TEXT NOT NULL,
   role          TEXT NOT NULL CHECK (role IN ('owner','assistant','subagent')),
@@ -54,7 +54,9 @@ CREATE TABLE IF NOT EXISTS effectiveness (
   done_test_met     INTEGER DEFAULT 0,
   incident_spawned  INTEGER DEFAULT 0,
   restore_proof_age_h REAL,
-  tokens_per_accepted_card REAL
+  tokens_per_accepted_card REAL,
+  ungrounded_claims INTEGER DEFAULT 0,
+  verify_bounce_reason TEXT
 );
 
 -- Views
@@ -70,4 +72,4 @@ LEFT JOIN ledger_rows l ON l.card_id = c.card_id
 GROUP BY c.swimlane;
 
 CREATE VIEW IF NOT EXISTS untagged AS
-SELECT * FROM ledger_rows WHERE card_id IS NULL OR card_id = '';
+SELECT * FROM ledger_rows WHERE card_id IS NULL;

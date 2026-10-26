@@ -33,6 +33,7 @@ def get_connection(db_path):
     os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     # Ensure schema is loaded
     schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
     if os.path.exists(schema_path):
@@ -131,7 +132,40 @@ def cmd_log_session(args):
                 args.cost_estimate,
             ),
         )
-    print(f"Logged session for card {args.card} ({args.class_slug} / {args.group}).")
+    if args.card:
+        print(f"Logged session for card {args.card} ({args.class_slug} / {args.group}).")
+    else:
+        print(f"Logged untagged session ({args.class_slug} / {args.group}) — no card_id.")
+
+
+def cmd_log_effectiveness(args):
+    conn = get_connection(find_db(args.db))
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO effectiveness (
+                card_id, first_pass_accept, rework_count, done_test_met,
+                incident_spawned, ungrounded_claims, verify_bounce_reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(card_id) DO UPDATE SET
+                first_pass_accept = coalesce(excluded.first_pass_accept, effectiveness.first_pass_accept),
+                rework_count = coalesce(excluded.rework_count, effectiveness.rework_count),
+                done_test_met = coalesce(excluded.done_test_met, effectiveness.done_test_met),
+                incident_spawned = coalesce(excluded.incident_spawned, effectiveness.incident_spawned),
+                ungrounded_claims = coalesce(excluded.ungrounded_claims, effectiveness.ungrounded_claims),
+                verify_bounce_reason = coalesce(excluded.verify_bounce_reason, effectiveness.verify_bounce_reason)
+            """,
+            (
+                args.card,
+                args.first_pass_accept,
+                args.rework_count,
+                args.done_test_met,
+                args.incident_spawned,
+                args.ungrounded_claims,
+                args.verify_bounce_reason,
+            ),
+        )
+    print(f"Logged effectiveness for card {args.card}.")
 
 
 def cmd_pulse(args):
@@ -208,7 +242,7 @@ def main():
 
     # log-session
     p_log = sub.add_parser("log-session", help="Record session spend attributed to a card")
-    p_log.add_argument("--card", required=True, help="Card ID")
+    p_log.add_argument("--card", default=None, help="Card ID (omit to record an untagged session)")
     p_log.add_argument("--group", required=True, choices=["keep", "works", "steward", "watch"])
     p_log.add_argument("--class", dest="class_slug", required=True, help="Class slug (e.g. warrior)")
     p_log.add_argument("--role", choices=["owner", "assistant", "subagent"], default="owner")
@@ -230,6 +264,17 @@ def main():
     p_log.add_argument("--cost-provider", type=float, default=None)
     p_log.add_argument("--cost-estimate", type=float, default=None)
     p_log.set_defaults(func=cmd_log_session)
+
+    # log-effectiveness
+    p_eff = sub.add_parser("log-effectiveness", help="Record effectiveness / verification outcome for a card")
+    p_eff.add_argument("--card", required=True, help="Card ID")
+    p_eff.add_argument("--first-pass-accept", type=int, choices=[0, 1], default=None)
+    p_eff.add_argument("--rework-count", type=int, default=None)
+    p_eff.add_argument("--done-test-met", type=int, choices=[0, 1], default=None)
+    p_eff.add_argument("--incident-spawned", type=int, choices=[0, 1], default=None)
+    p_eff.add_argument("--ungrounded-claims", type=int, default=None)
+    p_eff.add_argument("--verify-bounce-reason", default=None, help="ungrounded_claim | wrong | style | req_change")
+    p_eff.set_defaults(func=cmd_log_effectiveness)
 
     # pulse
     p_pulse = sub.add_parser("pulse", help="Display Guild Ledger pulse view")

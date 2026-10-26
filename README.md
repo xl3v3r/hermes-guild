@@ -20,11 +20,11 @@
                                    ~ 21 ROLES • ZERO STANDING BLOAT ~
 ```
 
-# Hermes Operations Guild (v1.2)
+# Hermes Operations Guild (v1.3)
 
 > **A role-and-accountability operating system for multi-agent autonomous engineering, platform operations, and governance.**
 
-Instantiates the [Guild Charter v1.2](CHARTER.md) as a complete, ready-to-run Hermes deployment: **21 role profiles**, a unified **Kanban board**, an attribution-focused **SQLite Ledger**, and **8 resident cron watches**.
+Instantiates the [Guild Charter v1.3](CHARTER.md) as a complete, ready-to-run Hermes deployment: **21 role profiles**, a unified **Kanban board**, an attribution-focused **SQLite Ledger**, and **8 resident cron watches**.
 
 ---
 
@@ -60,6 +60,7 @@ Most multi-agent architectures fail due to **agent sprawl**: they launch dozens 
 3. **Flat Delegation by Default (`max_spawn_depth: 1`):** The hierarchy represents accountability, blame, and review—**not** nested `delegate_task` calls.
 4. **Durable Watches, Not Chatty Idle Agents:** Continuous monitoring (backups, certs, DB health, mail) runs in **cron**, not in expensive conversation contexts.
 5. **Attribution, Not Invoices:** The Ledger tracks efficiency and outcome effectiveness (`first_pass_accept`, `rework_count`, `incident_spawned`), refusing to treat raw token burn as a measure of productivity.
+6. **Grounded, Not Hallucinated:** Every Verify claim must trace to a tool result, file, URL, or DB row. Paladin audits high-stakes claims; Shaman reports `ungrounded_claims` so hallucination is measured, not guessed.
 
 ---
 
@@ -301,6 +302,23 @@ watch      | 2      | 1     | 1        | $0.0920    | 31,800
 --------------------------------------------------------------------
 TOTAL      | 10     | 4     | 6        | $0.6300    | 219,300   
 ====================================================================
+```
+
+### Logging effectiveness & Verify bounces
+
+Record verification outcomes and anti-hallucination signals against a card:
+
+```bash
+python3 ledger/record.py log-effectiveness \
+  --card KEEP-101 \
+  --first-pass-accept 1 \
+  --rework-count 0
+
+# A claim that couldn't be traced to evidence
+python3 ledger/record.py log-effectiveness \
+  --card KEEP-101 \
+  --verify-bounce-reason ungrounded_claim \
+  --ungrounded-claims 1
 ```
 
 ---

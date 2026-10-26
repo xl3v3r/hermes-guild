@@ -22,6 +22,9 @@
 # Paladin — renewal calendar + token-budget watch
 #   hermes cron create --profile paladin "0 6 * * 1" "Check renewals, invoices, and token budget vs provider bill; flag over-threshold or untagged spend."
 
+# Paladin — weekly claims audit (anti-hallucination)
+#   hermes cron create --profile paladin "30 6 * * 1" "Sample closed cards and cross-check claims against attached evidence; bounce ungrounded claims with reason ungrounded_claim."
+
 # Necromancer — backup verification beats
 #   hermes cron create --profile necromancer "0 4 * * *" "Verify the latest backup and run/confirm the restore test; update restore proof age."
 

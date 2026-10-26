@@ -2,7 +2,7 @@
 
 One board. Four swimlanes. One owner per card.
 
-Columns: `Inbox → Mission → Ready → Doing → Verify → Done`, with `Hold / Blocked`.
+Columns: `Inbox → Mission → Ready → Doing → Verify → Done`, with `Hold`.
 
 ## Swimlanes
 
@@ -27,6 +27,9 @@ constraints: <change window, legal, budget, no-prod, ...>
 
 Before Verify, a card must carry: evidence links and a ledger tag
 (sessions, API calls, tool calls, tokens in/out, cost signal, result).
+
+Every claim must trace to a tool result, file, URL, or DB row; an
+ungrounded claim bounces with reason `ungrounded_claim` (see CHARTER §15).
 
 ## WIP limits
 
