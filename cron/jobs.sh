@@ -10,23 +10,23 @@ GUILD_REPO="${GUILD_REPO:-$HOME/guild}"
 # 1. Bard — Inbound communications monitoring (token-efficient monitor probe)
 #    Only runs agent if check_mail_probe.py reports changes.
 # hermes cron create --name "bard-mail-watch" \
-#   --monitor-script "$GUILD_REPO/scripts/check_mail_probe.py" \
+#   --monitor-script "check_mail_probe.py" \
 #   "every 15m" "New unread communication detected. Classify and route tickets to Inbox."
 
 # 2. Necromancer — Backup verification & integrity check (deterministic, ZERO tokens)
 # hermes cron create --name "necromancer-backup-verify" \
-#   --script "$GUILD_REPO/scripts/verify_backups_probe.sh" \
+#   --script "verify_backups_probe.sh" \
 #   --no-agent "0 4 * * *"
 
 # 3. Beastlord — Drift sweep for servers, certs, profiles & untagged sessions
 #    Only runs agent if sweep_drift_probe.py reports new drift.
 # hermes cron create --name "beastlord-drift-sweep" \
-#   --monitor-script "$GUILD_REPO/scripts/sweep_drift_probe.py" \
+#   --monitor-script "sweep_drift_probe.py" \
 #   "0 7 * * *" "Configuration drift detected. Open drift tickets on the Guild Kanban."
 
 # 4. Shaman — Daily pulse publish (deterministic, ZERO tokens)
 # hermes cron create --name "shaman-pulse-publish" \
-#   --script "$GUILD_REPO/scripts/publish_pulse.py" \
+#   --script "publish_pulse.py" \
 #   --no-agent "0 8 * * *"
 
 # 5. Enchanter — Daily cadence: sync Kanban, age Doing>48h and Verify>24h cards, calculate effectiveness

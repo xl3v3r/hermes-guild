@@ -31,6 +31,14 @@ DEFAULT_DB_PATHS = [
 
 
 def find_guild_db():
+    env_db = os.environ.get("HERMES_GUILD_DB")
+    if env_db and os.path.exists(os.path.expanduser(env_db)):
+        return os.path.expanduser(env_db)
+    repo = os.environ.get("GUILD_REPO")
+    if repo:
+        cand = os.path.join(os.path.expanduser(repo), "ledger", "guild.sqlite")
+        if os.path.exists(cand):
+            return cand
     for p in DEFAULT_DB_PATHS:
         if os.path.exists(p):
             return p
@@ -43,7 +51,7 @@ def parse_card_tag(text):
     m = re.search(r"\[([A-Za-z0-9_\-]+)\]", text)
     if m:
         return m.group(1).upper()
-    m = re.search(r"\b([A-Z]+-[0-9]+)\b", text)
+    m = re.search(r"\b([A-Za-z]+-[0-9]+)\b", text)
     if m:
         return m.group(1).upper()
     return None

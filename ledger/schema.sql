@@ -60,23 +60,58 @@ CREATE TABLE IF NOT EXISTS effectiveness (
   verify_bounce_reason TEXT
 );
 
--- Views
 DROP VIEW IF EXISTS pulse;
 CREATE VIEW IF NOT EXISTS pulse AS
-SELECT c.swimlane AS group_name,
-       COUNT(DISTINCT c.card_id) AS cards,
-       SUM(CASE WHEN c.column IN ('doing','verify','running','review') THEN 1 ELSE 0 END) AS wip,
-       SUM(CASE WHEN c.column = 'done' THEN 1 ELSE 0 END) AS accepted,
-       COALESCE(SUM(l.cost_provider), 0) AS cost_provider,
-       COALESCE(SUM(l.tokens_in + l.tokens_out), 0) AS tokens,
-       ROUND(AVG(CASE WHEN e.first_pass_accept IS NOT NULL THEN e.first_pass_accept * 100.0 ELSE NULL END), 1) AS first_pass_rate,
-       ROUND(AVG(e.cycle_time_h), 2) AS avg_cycle_time_h,
-       COALESCE(SUM(e.rework_count), 0) AS total_rework,
-       COALESCE(SUM(e.ungrounded_claims), 0) AS ungrounded_claims
-FROM cards c
-LEFT JOIN ledger_rows l ON l.card_id = c.card_id
-LEFT JOIN effectiveness e ON e.card_id = c.card_id
-GROUP BY c.swimlane;
+WITH groups(group_name) AS (
+  VALUES ('keep'), ('works'), ('steward'), ('watch')
+),
+card_stats AS (
+  SELECT
+    c.card_id,
+    c.swimlane,
+    c.column,
+    e.first_pass_accept,
+    e.cycle_time_h,
+    e.rework_count,
+    e.ungrounded_claims
+  FROM cards c
+  LEFT JOIN effectiveness e ON e.card_id = c.card_id
+),
+card_totals AS (
+  SELECT
+    swimlane AS group_name,
+    COUNT(card_id) AS cards,
+    SUM(CASE WHEN column IN ('doing','verify','running','review') THEN 1 ELSE 0 END) AS wip,
+    SUM(CASE WHEN column IN ('done','archived') THEN 1 ELSE 0 END) AS accepted,
+    ROUND(AVG(CASE WHEN first_pass_accept IS NOT NULL THEN first_pass_accept * 100.0 ELSE NULL END), 1) AS first_pass_rate,
+    ROUND(AVG(cycle_time_h), 2) AS avg_cycle_time_h,
+    COALESCE(SUM(rework_count), 0) AS total_rework,
+    COALESCE(SUM(ungrounded_claims), 0) AS ungrounded_claims
+  FROM card_stats
+  GROUP BY swimlane
+),
+spend_totals AS (
+  SELECT
+    group_name,
+    COALESCE(SUM(cost_provider), 0) AS cost_provider,
+    COALESCE(SUM(tokens_in + tokens_out), 0) AS tokens
+  FROM ledger_rows
+  GROUP BY group_name
+)
+SELECT
+  g.group_name,
+  COALESCE(ct.cards, 0) AS cards,
+  COALESCE(ct.wip, 0) AS wip,
+  COALESCE(ct.accepted, 0) AS accepted,
+  COALESCE(st.cost_provider, 0) AS cost_provider,
+  COALESCE(st.tokens, 0) AS tokens,
+  ct.first_pass_rate,
+  ct.avg_cycle_time_h,
+  COALESCE(ct.total_rework, 0) AS total_rework,
+  COALESCE(ct.ungrounded_claims, 0) AS ungrounded_claims
+FROM groups g
+LEFT JOIN card_totals ct ON ct.group_name = g.group_name
+LEFT JOIN spend_totals st ON st.group_name = g.group_name;
 
 CREATE VIEW IF NOT EXISTS untagged AS
 SELECT * FROM ledger_rows WHERE card_id IS NULL;

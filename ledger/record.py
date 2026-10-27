@@ -11,7 +11,7 @@ import os
 import re
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 DEFAULT_DB_PATHS = [
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "guild.sqlite"),
@@ -176,6 +176,25 @@ def cmd_log_effectiveness(args):
     print(f"Logged effectiveness for card {args.card}.")
 
 
+def parse_datetime_utc(s):
+    """Parse timestamp string into UTC-naive datetime object for arithmetic."""
+    if not s:
+        return None
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+    except Exception:
+        pass
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"):
+        try:
+            return datetime.strptime(s, fmt)
+        except Exception:
+            pass
+    return None
+
+
 def parse_card_tag(text):
     """Extract card ID from string like '[KEEP-101] Fix connection pool' or 'KEEP-101: Fix'."""
     if not text:
@@ -184,8 +203,8 @@ def parse_card_tag(text):
     m = re.search(r"\[([A-Za-z0-9_\-]+)\]", text)
     if m:
         return m.group(1).upper()
-    # Check TAG-123 prefix pattern
-    m = re.search(r"\b([A-Z]+-[0-9]+)\b", text)
+    # Check TAG-123 prefix pattern (case-insensitive)
+    m = re.search(r"\b([A-Za-z]+-[0-9]+)\b", text)
     if m:
         return m.group(1).upper()
     return None
@@ -341,15 +360,13 @@ def cmd_calculate_effectiveness(args):
         closed = c["closed_at"]
         col = c["column"]
 
-        # Calculate cycle time
+        # Calculate cycle time using robust UTC-naive timestamps
         cycle_time_h = None
         if opened and closed:
-            try:
-                t0 = datetime.fromisoformat(opened.replace("Z", "+00:00"))
-                t1 = datetime.fromisoformat(closed.replace("Z", "+00:00"))
-                cycle_time_h = round((t1 - t0).total_seconds() / 3600.0, 2)
-            except Exception:
-                cycle_time_h = None
+            t0 = parse_datetime_utc(opened)
+            t1 = parse_datetime_utc(closed)
+            if t0 and t1:
+                cycle_time_h = round(max(0.0, (t1 - t0).total_seconds() / 3600.0), 2)
 
         # Check tokens from ledger
         tok_row = conn.execute(
@@ -360,14 +377,16 @@ def cmd_calculate_effectiveness(args):
 
         # Existing effectiveness row
         eff = conn.execute("SELECT * FROM effectiveness WHERE card_id = ?", (cid,)).fetchone()
-        rework_count = eff["rework_count"] if eff else 0
-        ungrounded = eff["ungrounded_claims"] if eff else 0
+        rework_count = eff["rework_count"] if eff and eff["rework_count"] is not None else 0
+        ungrounded = eff["ungrounded_claims"] if eff and eff["ungrounded_claims"] is not None else 0
         bounce_reason = eff["verify_bounce_reason"] if eff else None
 
-        # First pass accept = 1 if closed/done and no rework
-        is_done = col == "done" or bool(closed)
-        first_pass = 1 if is_done and rework_count == 0 else (0 if rework_count > 0 else 0)
+        # First pass accept:
+        # 1 if card is completed without rework; 0 if completed after rework; None if not yet completed (WIP/open)
+        is_done = col in ("done", "archived") or bool(closed)
+        first_pass = (1 if rework_count == 0 else 0) if is_done else None
         done_test_met = 1 if is_done else 0
+        tokens_accepted = tokens if is_done else None
 
         with conn:
             conn.execute(
@@ -385,7 +404,7 @@ def cmd_calculate_effectiveness(args):
                     ungrounded_claims = excluded.ungrounded_claims,
                     verify_bounce_reason = coalesce(excluded.verify_bounce_reason, effectiveness.verify_bounce_reason)
                 """,
-                (cid, first_pass, rework_count, cycle_time_h, done_test_met, tokens, ungrounded, bounce_reason),
+                (cid, first_pass, rework_count, cycle_time_h, done_test_met, tokens_accepted, ungrounded, bounce_reason),
             )
         updated += 1
 
@@ -407,8 +426,6 @@ def cmd_pulse(args):
 
     total_cards = total_wip = total_accepted = total_tokens = total_rework = 0
     total_cost = 0.0
-    pass_rates = []
-    cycle_times = []
 
     for r in rows:
         cards = r["cards"] or 0
@@ -427,25 +444,22 @@ def cmd_pulse(args):
         total_tokens += tokens
         total_rework += rework
 
-        if pass_rate is not None:
-            pass_rates.append(pass_rate)
-            pass_str = f"{pass_rate:4.1f}%"
-        else:
-            pass_str = "   -  "
-
-        if cycle_h is not None:
-            cycle_times.append(cycle_h)
-            cycle_str = f"{cycle_h:6.1f}h"
-        else:
-            cycle_str = "    -   "
+        pass_str = f"{pass_rate:4.1f}%" if pass_rate is not None else "   -  "
+        cycle_str = f"{cycle_h:6.1f}h" if cycle_h is not None else "    -   "
 
         print(
             f"{r['group_name']:<10} | {cards:<5} | {wip:<4} | {accepted:<5} | ${cost:<8.4f} | {tokens:<10,d} | {pass_str:<6} | {cycle_str:<9} | {rework:<6}"
         )
 
     print(div)
-    avg_pass = f"{sum(pass_rates) / len(pass_rates):4.1f}%" if pass_rates else "   -  "
-    avg_cycle = f"{sum(cycle_times) / len(cycle_times):6.1f}h" if cycle_times else "    -   "
+    # Compute overall averages from underlying tables for statistical accuracy
+    overall_pass_row = conn.execute("SELECT AVG(first_pass_accept * 100.0) FROM effectiveness WHERE first_pass_accept IS NOT NULL").fetchone()
+    overall_pass = overall_pass_row[0] if overall_pass_row and overall_pass_row[0] is not None else None
+    overall_cycle_row = conn.execute("SELECT AVG(cycle_time_h) FROM effectiveness WHERE cycle_time_h IS NOT NULL").fetchone()
+    overall_cycle = overall_cycle_row[0] if overall_cycle_row and overall_cycle_row[0] is not None else None
+
+    avg_pass = f"{overall_pass:4.1f}%" if overall_pass is not None else "   -  "
+    avg_cycle = f"{overall_cycle:6.1f}h" if overall_cycle is not None else "    -   "
     print(
         f"{'TOTAL':<10} | {total_cards:<5} | {total_wip:<4} | {total_accepted:<5} | ${total_cost:<8.4f} | {total_tokens:<10,d} | {avg_pass:<6} | {avg_cycle:<9} | {total_rework:<6}"
     )

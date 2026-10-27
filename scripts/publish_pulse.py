@@ -16,6 +16,14 @@ DEFAULT_DB_PATHS = [
 
 
 def find_db():
+    env_db = os.environ.get("HERMES_GUILD_DB")
+    if env_db and os.path.exists(os.path.expanduser(env_db)):
+        return os.path.expanduser(env_db)
+    repo = os.environ.get("GUILD_REPO")
+    if repo:
+        cand = os.path.join(os.path.expanduser(repo), "ledger", "guild.sqlite")
+        if os.path.exists(cand):
+            return cand
     for p in DEFAULT_DB_PATHS:
         if os.path.exists(p):
             return p
@@ -77,8 +85,13 @@ def main():
         )
 
     print(div)
-    avg_pass = f"{sum(pass_rates) / len(pass_rates):4.1f}%" if pass_rates else "   -  "
-    avg_cycle = f"{sum(cycle_times) / len(cycle_times):6.1f}h" if cycle_times else "    -   "
+    overall_pass_row = conn.execute("SELECT AVG(first_pass_accept * 100.0) FROM effectiveness WHERE first_pass_accept IS NOT NULL").fetchone()
+    overall_pass = overall_pass_row[0] if overall_pass_row and overall_pass_row[0] is not None else None
+    overall_cycle_row = conn.execute("SELECT AVG(cycle_time_h) FROM effectiveness WHERE cycle_time_h IS NOT NULL").fetchone()
+    overall_cycle = overall_cycle_row[0] if overall_cycle_row and overall_cycle_row[0] is not None else None
+
+    avg_pass = f"{overall_pass:4.1f}%" if overall_pass is not None else "   -  "
+    avg_cycle = f"{overall_cycle:6.1f}h" if overall_cycle is not None else "    -   "
     print(
         f"{'TOTAL':<10} | {total_cards:<5} | {total_wip:<4} | {total_accepted:<5} | ${total_cost:<8.4f} | {total_tokens:<10,d} | {avg_pass:<6} | {avg_cycle:<9} | {total_rework:<6}"
     )

@@ -108,6 +108,10 @@ fi
 if [[ -d "$GUILD_DIR/scripts" ]]; then
   cp -r "$GUILD_DIR/scripts/"* "$GUILD_REPO/scripts/" 2>/dev/null || true
   chmod +x "$GUILD_REPO/scripts/"* 2>/dev/null || true
+  mkdir -p "$HERMES_HOME/scripts"
+  cp -r "$GUILD_DIR/scripts/"* "$HERMES_HOME/scripts/" 2>/dev/null || true
+  chmod +x "$HERMES_HOME/scripts/"* 2>/dev/null || true
+  echo "  + scripts provisioned to $GUILD_REPO/scripts and $HERMES_HOME/scripts"
 fi
 
 # Initialize SQLite database
@@ -128,31 +132,49 @@ fi
 echo
 echo "== Registering telemetry hook =="
 python3 - <<EOF
-import os, json, yaml
+import os, json, re
 from datetime import datetime, timezone
 
 hermes_home = os.path.expanduser("$HERMES_HOME")
 config_path = os.path.join(hermes_home, "config.yaml")
 hook_cmd = "python3 $GUILD_REPO/ledger/sync_telemetry.py"
 
-data = {}
+# Safely check and register in config.yaml without stripping comments
 if os.path.exists(config_path):
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-    except Exception:
-        data = {}
-
-hooks = data.setdefault("hooks", {})
-end_hooks = hooks.setdefault("on_session_end", [])
-already_present = any(isinstance(h, dict) and h.get("command") == hook_cmd for h in end_hooks)
-if not already_present:
-    end_hooks.append({"command": hook_cmd})
-    with open(config_path, "w", encoding="utf-8") as f:
-        yaml.dump(data, f, default_flow_style=False)
-    print("  + registered on_session_end hook in config.yaml")
+    with open(config_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    if hook_cmd in content:
+        print("  = on_session_end hook already registered in config.yaml")
+    else:
+        # Check if active 'hooks:' section exists
+        if re.search(r"^hooks:\s*$", content, re.MULTILINE):
+            if re.search(r"^\s+on_session_end:\s*$", content, re.MULTILINE):
+                new_content = re.sub(
+                    r"(^\s+on_session_end:\s*$)",
+                    r'\1\n    - command: "' + hook_cmd + '"',
+                    content,
+                    count=1,
+                    flags=re.MULTILINE,
+                )
+            else:
+                new_content = re.sub(
+                    r"(^hooks:\s*$)",
+                    r'\1\n  on_session_end:\n    - command: "' + hook_cmd + '"',
+                    content,
+                    count=1,
+                    flags=re.MULTILINE,
+                )
+            with open(config_path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            print("  + registered on_session_end hook in config.yaml")
+        else:
+            with open(config_path, "a", encoding="utf-8") as f:
+                f.write('\n# Hermes Guild Telemetry Hook\nhooks:\n  on_session_end:\n    - command: "' + hook_cmd + '"\n')
+            print("  + registered on_session_end hook in config.yaml")
 else:
-    print("  = on_session_end hook already registered in config.yaml")
+    with open(config_path, "w", encoding="utf-8") as f:
+        f.write('# Hermes Guild Telemetry Hook\nhooks:\n  on_session_end:\n    - command: "' + hook_cmd + '"\n')
+    print("  + created config.yaml with on_session_end hook")
 
 allowlist_path = os.path.join(hermes_home, "shell-hooks-allowlist.json")
 al_data = {"schema_version": 1, "approvals": []}

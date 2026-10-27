@@ -67,6 +67,14 @@ def resolve_kanban_db(explicit_path=None, board="guild"):
 def resolve_guild_db(explicit_path=None):
     if explicit_path:
         return os.path.expanduser(explicit_path)
+    env_db = os.environ.get("HERMES_GUILD_DB")
+    if env_db and os.path.exists(os.path.expanduser(env_db)):
+        return os.path.expanduser(env_db)
+    repo = os.environ.get("GUILD_REPO")
+    if repo:
+        cand = os.path.join(os.path.expanduser(repo), "ledger", "guild.sqlite")
+        if os.path.exists(cand):
+            return cand
     candidates = [
         os.path.join(ROOT, "ledger", "guild.sqlite"),
         os.path.expanduser("~/guild/ledger/guild.sqlite"),
@@ -81,6 +89,11 @@ def resolve_guild_db(explicit_path=None):
 def resolve_board_md(explicit_path=None):
     if explicit_path:
         return os.path.expanduser(explicit_path)
+    repo = os.environ.get("GUILD_REPO")
+    if repo:
+        cand = os.path.join(os.path.expanduser(repo), "board", "kanban.md")
+        if os.path.exists(cand):
+            return cand
     candidates = [
         os.path.join(ROOT, "board", "kanban.md"),
         os.path.expanduser("~/guild/board/kanban.md"),
@@ -127,6 +140,26 @@ def export_markdown(guild_conn, board_md_path):
     lines.append("- **Steward** — Operations & Governance (Steward of the Guild)")
     lines.append("- **Watch** — Security & Response (Captain of the Watch)")
     lines.append("")
+    lines.append("## Card template")
+    lines.append("")
+    lines.append("```text")
+    lines.append("card_id:  <short id>")
+    lines.append("title:    <outcome>")
+    lines.append("swimlane: keep | works | steward | watch")
+    lines.append("owner:    <class>")
+    lines.append("assists:  <optional, named>")
+    lines.append("source:   you | bard | rogue | beastlord | enchanter | watch | other")
+    lines.append("priority: now | next | later")
+    lines.append("done:     <definition of done — observable artifact + who verifies it>")
+    lines.append("constraints: <change window, legal, budget, no-prod, ...>")
+    lines.append("```")
+    lines.append("")
+    lines.append("Before Verify, a card must carry: evidence links and a ledger tag")
+    lines.append("(sessions, API calls, tool calls, tokens in/out, cost signal, result).")
+    lines.append("")
+    lines.append("Every claim must trace to a tool result, file, URL, or DB row; an")
+    lines.append("ungrounded claim bounces with reason `ungrounded_claim` (see CHARTER §15).")
+    lines.append("")
     lines.append("## WIP limits")
     lines.append("")
     lines.append("| Scope | Cap | Active (Doing/Verify) |")
@@ -148,6 +181,8 @@ def export_markdown(guild_conn, board_md_path):
     lines.append(f"| Group: Watch | 3 Doing + Verify | {wip_by_lane['watch']}/3 |")
     lines.append(f"| Guild Total | 8 Doing + Verify | {total_wip}/8 |")
     lines.append("| Class Owner | 1 Doing, 1 Verify | Per-class enforcement |")
+    lines.append("")
+    lines.append("Aging: Enchanter flags Doing > 48h and Verify > 24h.")
     lines.append("")
 
     lines.append("## Current Board")
@@ -240,25 +275,36 @@ def sync(kanban_db_path, guild_db_path, board_md_path, dry_run=False):
                     )
             synced_to_guild += 1
 
-    # Check guild cards to sync back to Hermes tasks if missing
+    # Check guild cards to sync back to Hermes tasks if missing or completed
     cur = g_conn.execute("SELECT card_id, title, swimlane, owner_class, column, opened_at, closed_at FROM cards")
     guild_cards = [dict(r) for r in cur.fetchall()]
 
     if k_conn and not dry_run:
         for c in guild_cards:
             cid = c["card_id"]
+            h_status = GUILD_TO_HERMES_STATUS.get(c["column"], "todo")
+            now_epoch = int(datetime.now(timezone.utc).timestamp())
+            assignee = c["owner_class"]
+
             if cid not in hermes_ids:
-                h_status = GUILD_TO_HERMES_STATUS.get(c["column"], "todo")
-                now_epoch = int(datetime.now(timezone.utc).timestamp())
-                assignee = c["owner_class"]
                 try:
                     with k_conn:
                         k_conn.execute(
                             """
-                            INSERT INTO tasks (id, title, assignee, status, created_at)
-                            VALUES (?, ?, ?, ?, ?)
+                            INSERT INTO tasks (id, title, assignee, status, created_at, completed_at)
+                            VALUES (?, ?, ?, ?, ?, ?)
                             """,
-                            (cid, c["title"], assignee, h_status, now_epoch),
+                            (cid, c["title"], assignee, h_status, now_epoch, now_epoch if c["column"] in ("done", "closed") else None),
+                        )
+                    synced_to_hermes += 1
+                except sqlite3.OperationalError:
+                    pass
+            elif c["column"] in ("done", "closed") and hermes_ids[cid]["status"] != "done":
+                try:
+                    with k_conn:
+                        k_conn.execute(
+                            "UPDATE tasks SET status = 'done', completed_at = coalesce(completed_at, ?) WHERE id = ?",
+                            (now_epoch, cid),
                         )
                     synced_to_hermes += 1
                 except sqlite3.OperationalError:
