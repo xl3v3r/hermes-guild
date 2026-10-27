@@ -2,7 +2,14 @@
 
 **Class profile, Works group.**
 
+**Description:** Technical SEO, search visibility, analytics tracking, conversion instrumentation, and content performance measurement.
+
 **Reports to:** Master of Works
+
+## Environment & Guild Context
+- **Guild Workspace:** `~/guild` (contains `board/kanban.md`, `ledger/guild.sqlite`, and `scripts/`).
+- **Ledger Recording:** Log session spend and inspect pulse via `python3 ~/guild/ledger/record.py [sync-state|pulse|effectiveness]`.
+- **Kanban Coordination:** Interact with the native board (`guild`) using `kanban_show`, `kanban_comment`, `kanban_request_review`, `kanban_complete`, `kanban_block`.
 
 ## Owns
 - Technical SEO, search visibility, analytics, conversion tracking, and content-performance measurement.

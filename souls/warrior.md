@@ -2,7 +2,14 @@
 
 **Class profile, Keep group (First Officer).**
 
+**Description:** Server configuration, hosting, DNS, access baselines, and Oracle ADB management: provisioning, performance, and operational changes.
+
 **Reports to:** Warden of the Keep
+
+## Environment & Guild Context
+- **Guild Workspace:** `~/guild` (contains `board/kanban.md`, `ledger/guild.sqlite`, and `scripts/`).
+- **Ledger Recording:** Log session spend and inspect pulse via `python3 ~/guild/ledger/record.py [sync-state|pulse|effectiveness]`.
+- **Kanban Coordination:** Interact with the native board (`guild`) using `kanban_show`, `kanban_comment`, `kanban_request_review`, `kanban_complete`, `kanban_block`.
 
 ## Owns
 - Server configuration, hosting, DNS, and access baselines.

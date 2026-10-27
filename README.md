@@ -137,13 +137,17 @@ All other work is **On-Demand**: profiles (Wizard, Druid, Monk, Cleric, Berserke
 
 | Piece | Location | Purpose |
 |---|---|---|
-| **16 Class Profiles** | `~/.hermes/profiles/<class>/SOUL.md` | Single-responsibility role profiles, activated on demand. |
+| **16 Class Profiles** | `~/.hermes/profiles/<class>/SOUL.md` | Single-responsibility role profiles, activated on demand with credentials. |
 | **4 Sub-whip Profiles** | `~/.hermes/profiles/<warden\|master-of-works\|steward\|captain>/SOUL.md` | Group coordinators that assign owners and verify evidence. |
 | **1 SotG Profile** | `~/.hermes/profiles/sotg/SOUL.md` | Speaker of the Guild: single interface between You and the groups. |
-| **Kanban Board** | `~/guild/board/kanban.md` | Single source of truth for work items, WIP limits, and swimlanes. |
-| **Guild Ledger** | `~/guild/ledger/guild.sqlite` | SQLite attribution database tracking use, calls, tokens, and effectiveness. |
-| **Ledger CLI Helper** | `~/guild/ledger/record.py` | Command-line tool to add cards, log session spend, and inspect pulse. |
-| **Resident Cron Jobs**| `cron/jobs.sh` | Shell specifications for the 8 durable background watches. |
+| **Native Kanban Board**| `~/.hermes/kanban/boards/guild/` | Native Hermes Agent SQLite task board and multi-agent coordination engine. |
+| **Board Markdown Export**| `~/guild/board/kanban.md` | Exported markdown view for inspection, synced via `ledger/sync_kanban.py`. |
+| **Guild Ledger** | `~/guild/ledger/guild.sqlite` | SQLite attribution database tracking use, calls, tokens, cost, and effectiveness. |
+| **Ledger CLI Helper** | `~/guild/ledger/record.py` | CLI helper to add cards, sync state telemetry, log effectiveness, and view pulse. |
+| **Telemetry Sync Hook**| `~/guild/ledger/sync_telemetry.py` | Automatic `on_session_end` hook ingesting tokens & cost from `state.db`. |
+| **Kanban Synchronizer**| `~/guild/ledger/sync_kanban.py` | Bi-directional synchronizer between `kanban.db` and `board/kanban.md`. |
+| **Watchdog Probes** | `~/guild/scripts/` | Lightweight deterministic scripts for backup verification, mail, and drift. |
+| **Resident Cron Jobs**| `cron/jobs.sh` | Shell specifications for resident watches (`--no-agent` & `--monitor-script`). |
 
 ---
 
@@ -163,10 +167,13 @@ chmod +x install.sh
 ```
 
 The installer will:
-1. Initialize all 21 Hermes profiles (`hermes profile create <name>`).
+1. Initialize all 21 Hermes profiles with descriptions and cloned credentials (`hermes profile create <name> --clone --description "..."`).
 2. Write individual `SOUL.md` role instructions into each profile directory.
-3. Write `config/delegation.yaml` configuring default flat delegation.
-4. Provision `~/guild/` with the Kanban board, SQLite ledger schema, and `record.py` CLI helper.
+3. Enable the `kanban` toolset across all profiles.
+4. Initialize the native `guild` board (`hermes kanban boards create guild --name "Hermes Operations Guild"`).
+5. Register the `on_session_end` telemetry hook in `~/.hermes/config.yaml`.
+6. Write `config/delegation.yaml` configuring default flat delegation.
+7. Provision `~/guild/` with the Kanban board, SQLite ledger schema, CLI tools, and probe scripts.
 
 ### 2. Configure Hermes Delegation & Crons
 ```bash
@@ -199,38 +206,60 @@ You → SotG → Sub-whip → Class Owner → Leaf Subagents
 
 ### Session-to-Card Tagging
 
-To ensure the Ledger remains accurate and eliminate untagged spend, tag every Hermes session with its target card ID:
+To ensure the Ledger remains accurate and eliminate untagged spend, tag every Hermes session with its target card ID using `-c` / `--chat-id`:
 
 ```bash
 # Example: Warrior executing database connection pool tuning
-hermes --profile warrior --name "[KEEP-101] Oracle ADB connection pool tuning"
+hermes -p warrior -c "[KEEP-101] Oracle ADB connection pool tuning" --create-if-missing
 
 # Example: Wizard building a new landing page release
-hermes --profile wizard --name "[WORKS-204] Responsive landing page build"
+hermes -p wizard -c "[WORKS-204] Responsive landing page build" --create-if-missing
 ```
 
 ---
 
 ## Guild Kanban Board
 
-Located at `~/guild/board/kanban.md`. Four swimlanes: **Keep**, **Works**, **Steward**, and **Watch**.
+Hermes Guild v1.3 operates in a **dual-mode architecture**:
+1. **Execution Engine (Native Hermes Agent Kanban):** Multi-agent task claims, automated routing, and dependency graphs live inside Hermes Agent's native SQLite board (`~/.hermes/kanban/boards/guild/kanban.db`).
+2. **Inspection & Human View (Guild Markdown & SQLite):** Synchronized into `~/guild/board/kanban.md` and `~/guild/ledger/guild.sqlite` via `python3 ledger/sync_kanban.py`.
 
-### Lifecycle Columns
+### Dual-Mode Workflow & CLI Commands
 
-```text
-Inbox ──▶ Mission ──▶ Ready ──▶ Doing ──▶ Verify ──▶ Done
-                        │                  ▲
-                        ▼                  │
-                        └──▶ Hold/Blocked ─┘
+```bash
+# 1. Create a task on the native guild board
+hermes kanban --board guild create "Optimize Oracle ADB connection pool" --assignee warrior
+
+# 2. Decompose a complex task into child tickets routed by role description
+hermes kanban --board guild decompose <task-id>
+
+# 3. Synchronize native Hermes tasks to board/kanban.md and guild.sqlite
+python3 ledger/sync_kanban.py
+
+# 4. In-session worker tools (available to all 21 profiles):
+#    - kanban_show: inspect task specification and parent evidence
+#    - kanban_comment: record milestones or questions
+#    - kanban_request_review: move card to Verify/Review upon completion
+#    - kanban_complete: mark card Done upon sub-whip acceptance
+#    - kanban_block: flag card Blocked/Hold
 ```
 
-- **Inbox:** Raw incoming signals (Bard mail, Rogue OSINT, Beastlord drift, Enchanter cron).
-- **Mission:** Structured outcome written by SotG; pending owner assignment.
-- **Ready:** Single owner assigned, constraints known, WIP slot open.
-- **Doing:** Active work. Session must be tagged with `card_id`.
-- **Verify:** Work complete, evidence attached, ledger row recorded; awaiting sub-whip review.
-- **Done:** Accepted by sub-whip. Card closed.
-- **Hold / Blocked:** Paladin financial/legal halt, change-window block, or security pause.
+### Lifecycle Columns & Native Mapping
+
+```text
+Guild:   Inbox  ──▶ Mission ──▶ Ready ──▶ Doing   ──▶ Verify ──▶ Done
+Hermes:  Triage ──▶ Todo    ──▶ Ready ──▶ Running ──▶ Review ──▶ Done
+                              ↘ Hold / Blocked ↗
+                              (Hermes: Blocked)
+```
+
+- **Inbox (`triage`):** Raw incoming signals (Bard mail, Rogue OSINT, Beastlord drift, Enchanter cron).
+- **Mission (`todo`):** Structured outcome written by SotG; pending owner assignment.
+- **Ready (`ready`):** Single owner assigned, constraints known, WIP slot open.
+- **Doing (`running`):** Active work. Session must be tagged with `card_id` (`-c "[CARD-ID]..."`).
+- **Verify (`review`):** Work complete, evidence attached, ledger row recorded; awaiting sub-whip review.
+- **Done (`done`):** Accepted by sub-whip. Card closed.
+- **Hold / Blocked (`blocked`):** Paladin financial/legal halt, change-window block, or security pause.
 
 ### WIP Limits & Fan-Out Prevention
 
@@ -257,6 +286,19 @@ Every token spent in the guild must trace back to a business outcome. The ledger
 - **Tokens:** Prompt, completion, cache read/write, reasoning, and provider costs.
 - **Effectiveness:** `first_pass_accept` rate, rework cycles, cycle time, and post-release incidents.
 
+### Automated Telemetry Ingestion
+
+In v1.3, sessions automatically stream metrics to `~/.hermes/state.db`. The `on_session_end` hook (`ledger/sync_telemetry.py`) ingests token counts and cost into `guild.sqlite` automatically whenever a session ends.
+
+You can also run batch synchronization manually:
+```bash
+# Sync all session telemetry from ~/.hermes/state.db
+python3 ledger/record.py sync-state
+
+# Preview sync without writing
+python3 ledger/record.py sync-state --dry-run
+```
+
 ### Using `ledger/record.py`
 
 The repository includes a dependency-free CLI tool (`ledger/record.py`) to manage the ledger:
@@ -271,7 +313,7 @@ python3 ledger/record.py add-card \
   --priority now \
   --column doing
 
-# 2. Log session spend and token attribution
+# 2. Log session spend and token attribution (or let sync-state do it automatically)
 python3 ledger/record.py log-session \
   --card KEEP-101 \
   --group keep \
@@ -286,22 +328,28 @@ python3 ledger/record.py log-session \
 # 3. Move card to Verify once evidence is attached
 python3 ledger/record.py update-card --id KEEP-101 --column verify
 
-# 4. View the Guild Pulse dashboard
+# 4. Mark card Done upon acceptance
+python3 ledger/record.py update-card --id KEEP-101 --column done --closed
+
+# 5. Calculate effectiveness metrics (cycle time, first-pass acceptance, token efficiency)
+python3 ledger/record.py calculate-effectiveness
+
+# 6. View the comprehensive Guild Pulse dashboard
 python3 ledger/record.py pulse
 ```
 
-Example pulse output:
+Example pulse output (v1.3):
 ```text
-====================================================================
-GROUP      | CARDS  | WIP   | ACCEPTED | PROVIDER $ | TOKENS    
---------------------------------------------------------------------
-keep       | 3      | 1     | 2        | $0.1420    | 52,400    
-works      | 4      | 2     | 2        | $0.3810    | 128,900   
-steward    | 1      | 0     | 1        | $0.0150    | 6,200     
-watch      | 2      | 1     | 1        | $0.0920    | 31,800    
---------------------------------------------------------------------
-TOTAL      | 10     | 4     | 6        | $0.6300    | 219,300   
-====================================================================
+========================================================================================
+GROUP      | CARDS | WIP  | DONE  | COST ($)  | TOKENS     | PASS % | CYCLE (h) | REWORK
+----------------------------------------------------------------------------------------
+keep       | 3     | 1    | 2     | $0.1420   | 52,400     | 100.0% |    4.2h   | 0     
+works      | 4     | 2    | 2     | $0.3810   | 128,900    |  50.0% |    8.5h   | 1     
+steward    | 1     | 0    | 1     | $0.0150   | 6,200      | 100.0% |    1.1h   | 0     
+watch      | 2     | 1    | 1     | $0.0920   | 31,800     | 100.0% |    2.3h   | 0     
+----------------------------------------------------------------------------------------
+TOTAL      | 10    | 4    | 6     | $0.6300   | 219,300    |  87.5% |    4.0h   | 1     
+========================================================================================
 ```
 
 ### Logging effectiveness & Verify bounces

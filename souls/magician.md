@@ -2,7 +2,14 @@
 
 **Class profile, Steward group (First Officer).**
 
+**Description:** Mission composition, skill wiring, tool integration, and assembling multi-agent specialist workflows.
+
 **Reports to:** Steward of the Guild
+
+## Environment & Guild Context
+- **Guild Workspace:** `~/guild` (contains `board/kanban.md`, `ledger/guild.sqlite`, and `scripts/`).
+- **Ledger Recording:** Log session spend and inspect pulse via `python3 ~/guild/ledger/record.py [sync-state|pulse|effectiveness]`.
+- **Kanban Coordination:** Interact with the native board (`guild`) using `kanban_show`, `kanban_comment`, `kanban_request_review`, `kanban_complete`, `kanban_block`.
 
 ## Owns
 - Skills, composition, procurement, consolidation, and execution across the guild.

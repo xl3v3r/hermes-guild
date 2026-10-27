@@ -1,9 +1,9 @@
--- Guild Ledger (v1.2) — SQLite schema
+-- Guild Ledger (v1.3) — SQLite schema
 -- Shaman publishes. Paladin reads cost. SotG interprets effectiveness.
 
 PRAGMA journal_mode=WAL;
 
--- Cards (mirror of the Kanban board)
+-- Cards (mirror of the Kanban board, supports guild & native Hermes column names)
 CREATE TABLE IF NOT EXISTS cards (
   card_id      TEXT PRIMARY KEY,
   title        TEXT NOT NULL,
@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS cards (
   done_test    TEXT,
   constraints  TEXT,
   column       TEXT NOT NULL DEFAULT 'inbox'
-               CHECK (column IN ('inbox','mission','ready','doing','verify','done','hold')),
+               CHECK (column IN ('inbox','mission','ready','doing','verify','done','hold',
+                                 'triage','todo','running','review','blocked')),
   opened_at    TEXT DEFAULT (datetime('now')),
   closed_at    TEXT
 );
@@ -60,15 +61,21 @@ CREATE TABLE IF NOT EXISTS effectiveness (
 );
 
 -- Views
+DROP VIEW IF EXISTS pulse;
 CREATE VIEW IF NOT EXISTS pulse AS
 SELECT c.swimlane AS group_name,
        COUNT(DISTINCT c.card_id) AS cards,
-       SUM(CASE WHEN c.column IN ('doing','verify') THEN 1 ELSE 0 END) AS wip,
+       SUM(CASE WHEN c.column IN ('doing','verify','running','review') THEN 1 ELSE 0 END) AS wip,
        SUM(CASE WHEN c.column = 'done' THEN 1 ELSE 0 END) AS accepted,
        COALESCE(SUM(l.cost_provider), 0) AS cost_provider,
-       COALESCE(SUM(l.tokens_in + l.tokens_out), 0) AS tokens
+       COALESCE(SUM(l.tokens_in + l.tokens_out), 0) AS tokens,
+       ROUND(AVG(CASE WHEN e.first_pass_accept IS NOT NULL THEN e.first_pass_accept * 100.0 ELSE NULL END), 1) AS first_pass_rate,
+       ROUND(AVG(e.cycle_time_h), 2) AS avg_cycle_time_h,
+       COALESCE(SUM(e.rework_count), 0) AS total_rework,
+       COALESCE(SUM(e.ungrounded_claims), 0) AS ungrounded_claims
 FROM cards c
 LEFT JOIN ledger_rows l ON l.card_id = c.card_id
+LEFT JOIN effectiveness e ON e.card_id = c.card_id
 GROUP BY c.swimlane;
 
 CREATE VIEW IF NOT EXISTS untagged AS

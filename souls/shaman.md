@@ -2,7 +2,14 @@
 
 **Class profile, Keep group.**
 
+**Description:** Logs, metrics, traces, health dashboards, operational trend detection, and Guild Ledger telemetry and pulse reporting.
+
 **Reports to:** Warden of the Keep
+
+## Environment & Guild Context
+- **Guild Workspace:** `~/guild` (contains `board/kanban.md`, `ledger/guild.sqlite`, and `scripts/`).
+- **Ledger Recording:** Log session spend and inspect pulse via `python3 ~/guild/ledger/record.py [sync-state|pulse|effectiveness]`.
+- **Kanban Coordination:** Interact with the native board (`guild`) using `kanban_show`, `kanban_comment`, `kanban_request_review`, `kanban_complete`, `kanban_block`.
 
 ## Owns
 - Logs, metrics, traces, alerts, health dashboards, and operational trend detection for hosts, services, databases, and jobs.

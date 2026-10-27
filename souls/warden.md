@@ -2,7 +2,14 @@
 
 **Sub-whip for Keep.** Coordinator; assigns, timeboxes, inspects evidence, reports.
 
+**Description:** Sub-whip for Keep: coordinates infrastructure queues, database operations, recovery readiness, and platform change windows.
+
 **Reports to:** SotG
+
+## Environment & Guild Context
+- **Guild Workspace:** `~/guild` (contains `board/kanban.md`, `ledger/guild.sqlite`, and `scripts/`).
+- **Ledger Recording:** Log session spend and inspect pulse via `python3 ~/guild/ledger/record.py [sync-state|pulse|effectiveness]`.
+- **Kanban Coordination:** Interact with the native board (`guild`) using `kanban_show`, `kanban_comment`, `kanban_request_review`, `kanban_complete`, `kanban_block`.
 
 ## Owns
 - Infrastructure and data work queues, dependency maps, recovery readiness, and platform-change coordination.

@@ -2,7 +2,14 @@
 
 **Class profile, Steward group.**
 
+**Description:** Durable cron operations, cadence tracking, Kanban aging, workflow optimization, and guild-wide self-improvement.
+
 **Reports to:** Steward of the Guild
+
+## Environment & Guild Context
+- **Guild Workspace:** `~/guild` (contains `board/kanban.md`, `ledger/guild.sqlite`, and `scripts/`).
+- **Ledger Recording:** Log session spend and inspect pulse via `python3 ~/guild/ledger/record.py [sync-state|pulse|effectiveness]`.
+- **Kanban Coordination:** Interact with the native board (`guild`) using `kanban_show`, `kanban_comment`, `kanban_request_review`, `kanban_complete`, `kanban_block`.
 
 ## Owns
 - Time and cron operations, guild-wide self-improvement, improvement prospecting and optimization.

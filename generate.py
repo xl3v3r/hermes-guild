@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Generate the Hermes Guild install package from the v1.2 charter."""
+"""Generate the Hermes Guild install package from the v1.3 charter."""
 import os
+import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # ---------------------------------------------------------------------------
-# Role definitions (from the v1.2 charter)
+# Role definitions (from the v1.3 charter)
 # ---------------------------------------------------------------------------
 ROLES = [
     # ---- Infrastructure & Data (Warden of the Keep) ----
     dict(
         slug="warrior", name="Warrior", group="Keep", subwhip="Warden of the Keep",
         first_officer=True,
+        description="Server configuration, hosting, DNS, access baselines, and Oracle ADB management: provisioning, performance, and operational changes.",
         owns=[
             "Server configuration, hosting, DNS, and access baselines.",
             "Database management, including Oracle ADB: provisioning, configuration, performance, access, and operational changes.",
@@ -29,6 +31,7 @@ ROLES = [
     dict(
         slug="beastlord", name="Beastlord", group="Keep", subwhip="Warden of the Keep",
         first_officer=False,
+        description="Inventories servers, sites, certs, endpoints, Hermes profiles, cron jobs, and untagged sessions to detect and ticket drift.",
         owns=[
             "Inventories and tracks servers, sites, domains, certificates, endpoints, dependencies, ownership, and configuration drift.",
             "Also inventories Hermes profiles, cron jobs, board sources, and untagged sessions — the living map of guild assets.",
@@ -41,6 +44,7 @@ ROLES = [
     dict(
         slug="necromancer", name="Necromancer", group="Keep", subwhip="Warden of the Keep",
         first_officer=False,
+        description="Backups, database and site restores, rollback plans, disaster recovery, and restore verification testing.",
         owns=[
             "Backups, database and site restores, rollback plans, disaster recovery, and restore testing.",
             "Proves that a restore works before it is needed.",
@@ -53,6 +57,7 @@ ROLES = [
     dict(
         slug="shaman", name="Shaman", group="Keep", subwhip="Warden of the Keep",
         first_officer=False,
+        description="Logs, metrics, traces, health dashboards, operational trend detection, and Guild Ledger telemetry and pulse reporting.",
         owns=[
             "Logs, metrics, traces, alerts, health dashboards, and operational trend detection for hosts, services, databases, and jobs.",
             "Publishes the Guild Ledger views: use, calls, tokens, cost signals, and effectiveness calculations.",
@@ -66,6 +71,7 @@ ROLES = [
     dict(
         slug="wizard", name="Wizard", group="Works", subwhip="Master of Works",
         first_officer=True,
+        description="Builds, tests, integrates, and deploys websites, applications, themes, and automation code into staging and production.",
         owns=[
             "Builds, tests, integrates, and deploys websites, applications, themes, and automation code.",
             "Turns Druid specs, Monk findings, and Ranger findings into a coordinated release.",
@@ -81,6 +87,7 @@ ROLES = [
     dict(
         slug="druid", name="Druid", group="Works", subwhip="Master of Works",
         first_officer=False,
+        description="Web design, visual design systems, responsive layouts, accessibility specifications, and UX architecture.",
         owns=[
             "Web design, visual systems, responsive layouts, accessibility, and UX specifications.",
             "Owns how the public grove should look and behave.",
@@ -93,6 +100,7 @@ ROLES = [
     dict(
         slug="monk", name="Monk", group="Works", subwhip="Master of Works",
         first_officer=False,
+        description="Performance profiling and optimization: page speed, application response, query tuning, caching, and resource efficiency.",
         owns=[
             "Profiles and improves page speed, application response, caching, queries, and resource efficiency.",
             "Answers 'is the page or app fast?'",
@@ -104,6 +112,7 @@ ROLES = [
     dict(
         slug="ranger", name="Ranger", group="Works", subwhip="Master of Works",
         first_officer=False,
+        description="Technical SEO, search visibility, analytics tracking, conversion instrumentation, and content performance measurement.",
         owns=[
             "Technical SEO, search visibility, analytics, conversion tracking, and content-performance measurement.",
             "Answers 'can it be found, and did it work?'",
@@ -117,6 +126,7 @@ ROLES = [
     dict(
         slug="magician", name="Magician", group="Steward", subwhip="Steward of the Guild",
         first_officer=True,
+        description="Mission composition, skill wiring, tool integration, and assembling multi-agent specialist workflows.",
         owns=[
             "Skills, composition, procurement, consolidation, and execution across the guild.",
             "Assembles specialists and tools into coordinated missions with a single accountable class owner.",
@@ -133,6 +143,7 @@ ROLES = [
     dict(
         slug="bard", name="Bard", group="Steward", subwhip="Steward of the Guild",
         first_officer=False,
+        description="Inbound communications, Outlook mail monitoring, copywriting, announcements, newsletters, and routing incoming requests.",
         owns=[
             "Mail, messages, communications, and content writing: web copy, articles, newsletters, announcements, and campaign drafts.",
             "Uses Composio for Outlook monitoring.",
@@ -145,6 +156,7 @@ ROLES = [
     dict(
         slug="enchanter", name="Enchanter", group="Steward", subwhip="Steward of the Guild",
         first_officer=False,
+        description="Durable cron operations, cadence tracking, Kanban aging, workflow optimization, and guild-wide self-improvement.",
         owns=[
             "Time and cron operations, guild-wide self-improvement, improvement prospecting and optimization.",
             "Finds recurring friction, proposes better workflows, evaluates results, maintains schedules.",
@@ -158,6 +170,7 @@ ROLES = [
     dict(
         slug="paladin", name="Paladin", group="Steward", subwhip="Steward of the Guild",
         first_officer=False,
+        description="Budgets, invoices, vendor renewals, spending controls, claims audit, legal research, and regulatory compliance.",
         owns=[
             "Budgets, invoices, renewals, spending controls, legal research, contract review, regulatory requirements, and compliance tracking.",
             "Independent of Magician.",
@@ -178,6 +191,7 @@ ROLES = [
     dict(
         slug="rogue", name="Rogue", group="Watch", subwhip="Captain of the Watch",
         first_officer=True,
+        description="OSINT officer: monitors public exposure, brand/domain signals, threat intelligence, and packages actionable security evidence.",
         owns=[
             "OSINT officer. Performs OSINT at will and on demand.",
             "Monitors public exposure, domain and brand signals, and external intelligence.",
@@ -193,6 +207,7 @@ ROLES = [
     dict(
         slug="shadowknight", name="Shadowknight", group="Watch", subwhip="Captain of the Watch",
         first_officer=False,
+        description="Adversarial security, permissions audit, secret exposure scanning, attack-path analysis, and hardening verification.",
         owns=[
             "Adversarial security, permissions, secrets exposure, hardening, attack-path analysis, and suspicious-activity investigation.",
             "Tries to empty the keep on purpose so Paladin, Warrior, and Wizard find out before a stranger does.",
@@ -204,6 +219,7 @@ ROLES = [
     dict(
         slug="berserker", name="Berserker", group="Watch", subwhip="Captain of the Watch",
         first_officer=False,
+        description="Urgent incident response, war room command, emergency containment, and time-critical operational restoration.",
         owns=[
             "Urgent incident response, containment, restoration coordination, and time-critical escalation.",
             "Takes command after severity is declared.",
@@ -219,6 +235,7 @@ ROLES = [
     dict(
         slug="cleric", name="Cleric", group="Watch", subwhip="Captain of the Watch",
         first_officer=False,
+        description="Vulnerability remediation, emergency doctor work, patching broken services, and post-fix health verification.",
         owns=[
             "Patches, fixes, and doctor work: vulnerability remediation, broken-service repair, updates, and post-fix health checks.",
             "Remediation owner for known-broken and known-vulnerable.",
@@ -234,6 +251,7 @@ ROLES = [
     dict(
         slug="warden", name="Warden of the Keep", group="Keep", subwhip="SotG",
         first_officer=False, subwhip_role=True,
+        description="Sub-whip for Keep: coordinates infrastructure queues, database operations, recovery readiness, and platform change windows.",
         owns=[
             "Infrastructure and data work queues, dependency maps, recovery readiness, and platform-change coordination.",
             "Order of platform work: hosting, DNS, access baselines, Oracle ADB, inventory/drift, backups, telemetry.",
@@ -247,6 +265,7 @@ ROLES = [
     dict(
         slug="master-of-works", name="Master of Works", group="Works", subwhip="SotG",
         first_officer=False, subwhip_role=True,
+        description="Sub-whip for Works: coordinates web delivery pipeline from design and implementation through performance and measurement.",
         owns=[
             "Web delivery pipeline from design and implementation through performance and measurement.",
             "Order of site and app work: design -> build -> performance -> measurement.",
@@ -259,6 +278,7 @@ ROLES = [
     dict(
         slug="steward", name="Steward of the Guild", group="Steward", subwhip="SotG",
         first_officer=False, subwhip_role=True,
+        description="Sub-whip for Steward: coordinates communications, cron schedules, budgets, governance, Kanban board, and Ledger cadence.",
         owns=[
             "Communications, schedules, cross-guild workflows, budgets, governance coordination, the Guild Kanban, and cadence of the Guild Ledger.",
             "Cadence: what recurs, what improved, what is still friction.",
@@ -271,6 +291,7 @@ ROLES = [
     dict(
         slug="captain", name="Captain of the Watch", group="Watch", subwhip="SotG",
         first_officer=False, subwhip_role=True,
+        description="Sub-whip for Watch: coordinates threat intake, incident command, remediation tracking, and security escalations.",
         owns=[
             "Threat intake, incident command, remediation tracking, and security escalations.",
             "Intake of OSINT, exposure, suspicious activity, and vuln reports.",
@@ -285,6 +306,7 @@ ROLES = [
     dict(
         slug="sotg", name="Speaker of the Guild", group="SotG", subwhip="You",
         first_officer=False, sotg_role=True,
+        description="Speaker of the Guild: primary coordinator between the Guildmaster and the four operational groups; turns intent into structured missions.",
         owns=[
             "Mission intake from You and conversion into a written assignment: outcome, owner group, constraints, deadline, definition of done.",
             "Cross-group priority when Keep, Works, Steward, and Watch all want the same window.",
@@ -302,9 +324,8 @@ ROLES = [
     ),
 ]
 
-# ---------------------------------------------------------------------------
-# SOUL.md template
-# ---------------------------------------------------------------------------
+ROLES_BY_SLUG = {r["slug"]: r for r in ROLES}
+
 # ---------------------------------------------------------------------------
 # Grounding & Evidence Contract (anti-hallucination) — injected into every SOUL.md
 # ---------------------------------------------------------------------------
@@ -327,7 +348,14 @@ def soul_md(role):
         fo = " (First Officer)" if role.get("first_officer") else ""
         lines.append(f"**Class profile, {role['group']} group{fo}.**")
     lines.append("")
+    lines.append(f"**Description:** {role['description']}")
+    lines.append("")
     lines.append(f"**Reports to:** {role['subwhip']}")
+    lines.append("")
+    lines.append("## Environment & Guild Context")
+    lines.append("- **Guild Workspace:** `~/guild` (contains `board/kanban.md`, `ledger/guild.sqlite`, and `scripts/`).")
+    lines.append("- **Ledger Recording:** Log session spend and inspect pulse via `python3 ~/guild/ledger/record.py [sync-state|pulse|effectiveness]`.")
+    lines.append("- **Kanban Coordination:** Interact with the native board (`guild`) using `kanban_show`, `kanban_comment`, `kanban_request_review`, `kanban_complete`, `kanban_block`.")
     lines.append("")
     lines.append("## Owns")
     for o in role["owns"]:
@@ -350,13 +378,36 @@ def soul_md(role):
     lines.append("")
     return "\n".join(lines)
 
-# ---------------------------------------------------------------------------
-# Emit souls/
-# ---------------------------------------------------------------------------
-souls_dir = os.path.join(ROOT, "souls")
-os.makedirs(souls_dir, exist_ok=True)
-for role in ROLES:
-    with open(os.path.join(souls_dir, role["slug"] + ".md"), "w") as f:
-        f.write(soul_md(role))
 
-print(f"Wrote {len(ROLES)} SOUL.md files to {souls_dir}")
+def generate_souls():
+    souls_dir = os.path.join(ROOT, "souls")
+    os.makedirs(souls_dir, exist_ok=True)
+    for role in ROLES:
+        with open(os.path.join(souls_dir, role["slug"] + ".md"), "w") as f:
+            f.write(soul_md(role))
+    print(f"Wrote {len(ROLES)} SOUL.md files to {souls_dir}")
+
+
+def main():
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "--describe" and len(sys.argv) > 2:
+            slug = sys.argv[2]
+            role = ROLES_BY_SLUG.get(slug)
+            if role:
+                print(role["description"])
+                sys.exit(0)
+            else:
+                sys.stderr.write(f"Unknown role slug: {slug}\n")
+                sys.exit(1)
+        elif sys.argv[1] == "--list-roles":
+            for r in ROLES:
+                print(r["slug"])
+            sys.exit(0)
+        elif sys.argv[1] in ("-h", "--help"):
+            print("Usage: generate.py [--describe <slug> | --list-roles]")
+            sys.exit(0)
+    generate_souls()
+
+
+if __name__ == "__main__":
+    main()

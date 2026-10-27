@@ -534,24 +534,26 @@ The board is the only official picture of work. It is a Steward-operated artifac
 | Paladin | May pull a card to **Hold** for money or law. |
 | Captain / Berserker | May pull a card to **Hold** or open an incident card that breaks WIP until contained. Severity declaration self-authorizes the break. |
 
-### 13.2 Columns
+### 13.2 Columns & Native Hermes Status Mapping
 
 ```text
-Inbox → Mission → Ready → Doing → Verify → Done
-                    ↘ Hold / Blocked ↗
+Guild:   Inbox  ──▶ Mission ──▶ Ready ──▶ Doing   ──▶ Verify ──▶ Done
+Hermes:  Triage ──▶ Todo    ──▶ Ready ──▶ Running ──▶ Review ──▶ Done
+                              ↘ Hold / Blocked ↗
+                              (Hermes: Blocked)
 ```
 
-| Column | Meaning | Who may enter it | Exit rule |
-|---|---|---|---|
-| Inbox | Raw intent, inbound mail, OSINT, drift, cron finding. Not yet a mission. | Bard, Rogue, Beastlord, Enchanter, You, first officers | SotG writes outcome + done-test or rejects |
-| Mission | Written assignment exists. No owner yet. | SotG | Sub-whip or first officer names one owner |
-| Ready | Owner named, constraints known, WIP slot available. | Sub-whip, first officer | Owner pulls when they start |
-| Doing | Work is happening. Sessions must tag this card. | Class owner | Owner has evidence ready for review |
-| Verify | Evidence attached. Waiting on sub-whip accept. | Class owner | Sub-whip accepts → Done, or rejects → Doing |
-| Done | Accepted. Ledger row closed. | Sub-whip | Terminal. Reopen only as a new card |
-| Hold / Blocked | Paladin halt, Watch stop, waiting on You, waiting on a change window. | Paladin, Captain, SotG, Warden (window) | Blocker cleared; return to Ready or Doing |
+| Guild Column | Hermes Native Status | Meaning | Who may enter it | Exit rule |
+|---|---|---|---|---|
+| Inbox | `triage` | Raw intent, inbound mail, OSINT, drift, cron finding. Not yet a mission. | Bard, Rogue, Beastlord, Enchanter, You, first officers | SotG writes outcome + done-test or rejects (`hermes kanban specify` / `decompose`) |
+| Mission | `todo` | Written assignment exists. No owner yet. | SotG | Sub-whip or first officer names one owner |
+| Ready | `ready` | Owner named, constraints known, WIP slot available. | Sub-whip, first officer | Owner or dispatcher claims task to execute |
+| Doing | `running` | Work is happening. Sessions tag this card (`-c "[CARD-ID]..."`). | Class owner | Owner has evidence ready for review (`kanban_request_review`) |
+| Verify | `review` | Evidence attached. Waiting on sub-whip accept. | Class owner | Sub-whip accepts → Done (`kanban_complete`), or rejects → Doing (`reopen-review`) |
+| Done | `done` | Accepted. Ledger row closed. | Sub-whip | Terminal. Reopen only as a new card |
+| Hold / Blocked | `blocked` | Paladin halt, Watch stop, waiting on You, change window. | Paladin, Captain, SotG, Warden (window) | Blocker cleared; return to Ready or Doing (`kanban_unblock`) |
 
-Rejected Inbox items are not Done. They are dropped with a one-line reason so they do not look like finished work.
+Rejected Inbox items are not Done. They are dropped with a one-line reason so they do not look like finished work. Bi-directional sync between Hermes native `kanban.db` and Guild `board/kanban.md` is maintained by `ledger/sync_kanban.py`.
 
 ### 13.3 Swimlanes
 
@@ -739,6 +741,9 @@ source         provider_usage | state_db | estimate | plugin
 
 Invalid: a Doing session with no `card_id`.  
 Enchanter cron lists invalid sessions daily. Beastlord treats repeated untagged profiles as drift.
+
+**Native Telemetry Automation:**  
+In Hermes Guild v1.3, sessions record runtime metrics directly into `~/.hermes/state.db`. The `on_session_end` lifecycle hook (`ledger/sync_telemetry.py`) automatically ingests token counts, API/tool calls, and inference cost into `guild.sqlite` upon session finalization, parsing `[CARD-ID]` from the session name without manual entry. Batch synchronization and reconciliation are performed via `python3 ledger/record.py sync-state`.
 
 ### 14.4 Views you actually look at
 

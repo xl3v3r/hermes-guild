@@ -1,34 +1,52 @@
 #!/usr/bin/env bash
-# Resident cron jobs for the Hermes Guild (v1.2).
-# Register each interactively with `hermes cron create`, or edit
-# ~/.hermes/cron/jobs.json directly. Each job should target its profile
-# with `--profile <name>` so it runs in that profile's HERMES_HOME.
+# Resident cron jobs for the Hermes Guild (v1.3).
+# Uses modern Hermes Agent watchdog features:
+#   --no-agent:       Runs deterministic scripts with ZERO token usage.
+#   --monitor-script: Cheap probe runs before agent; unchanged output suppresses agent runs.
+# Register each with `hermes cron create`, or edit ~/.hermes/cron/jobs.json directly.
 
-# Bard — Outlook / inbound comms monitoring (Composio)
-#   hermes cron create --profile bard "every 15m" "Check Outlook for new inbound mail, classify, and route tickets to Inbox."
+GUILD_REPO="${GUILD_REPO:-$HOME/guild}"
 
-# Enchanter — daily cadence: age cards, flag WIP breaches, list untagged spend
-#   hermes cron create --profile enchanter "0 9 * * *" "Snapshot the board and ledger, age Doing>48h and Verify>24h cards, list untagged sessions."
+# 1. Bard — Inbound communications monitoring (token-efficient monitor probe)
+#    Only runs agent if check_mail_probe.py reports changes.
+# hermes cron create --name "bard-mail-watch" \
+#   --monitor-script "$GUILD_REPO/scripts/check_mail_probe.py" \
+#   "every 15m" "New unread communication detected. Classify and route tickets to Inbox."
 
-# Shaman — daily pulse publish
-#   hermes cron create --profile shaman "0 8 * * *" "Publish the guild pulse: WIP vs cap, accepted cards, provider cost, untagged tokens, open Sev1, restore proof age."
+# 2. Necromancer — Backup verification & integrity check (deterministic, ZERO tokens)
+# hermes cron create --name "necromancer-backup-verify" \
+#   --script "$GUILD_REPO/scripts/verify_backups_probe.sh" \
+#   --no-agent "0 4 * * *"
 
-# Rogue — OSINT / exposure beats
-#   hermes cron create --profile rogue "0 */6 * * *" "Run exposure and brand-signal beats; package findings with evidence and route to Watch Inbox."
+# 3. Beastlord — Drift sweep for servers, certs, profiles & untagged sessions
+#    Only runs agent if sweep_drift_probe.py reports new drift.
+# hermes cron create --name "beastlord-drift-sweep" \
+#   --monitor-script "$GUILD_REPO/scripts/sweep_drift_probe.py" \
+#   "0 7 * * *" "Configuration drift detected. Open drift tickets on the Guild Kanban."
 
-# Beastlord — inventory and drift sweep (infra + profiles)
-#   hermes cron create --profile beastlord "0 7 * * *" "Sweep servers, domains, certs, endpoints, profiles, cron jobs, and untagged sessions; open drift tickets."
+# 4. Shaman — Daily pulse publish (deterministic, ZERO tokens)
+# hermes cron create --name "shaman-pulse-publish" \
+#   --script "$GUILD_REPO/scripts/publish_pulse.py" \
+#   --no-agent "0 8 * * *"
 
-# Paladin — renewal calendar + token-budget watch
-#   hermes cron create --profile paladin "0 6 * * 1" "Check renewals, invoices, and token budget vs provider bill; flag over-threshold or untagged spend."
+# 5. Enchanter — Daily cadence: sync Kanban, age Doing>48h and Verify>24h cards, calculate effectiveness
+# hermes cron create --name "enchanter-cadence" \
+#   "0 9 * * *" "Run python3 $GUILD_REPO/ledger/sync_kanban.py, age Doing>48h and Verify>24h cards, and calculate effectiveness via python3 $GUILD_REPO/ledger/record.py calculate-effectiveness."
 
-# Paladin — weekly claims audit (anti-hallucination)
-#   hermes cron create --profile paladin "30 6 * * 1" "Sample closed cards and cross-check claims against attached evidence; bounce ungrounded claims with reason ungrounded_claim."
+# 6. Paladin — Renewal calendar, invoices, and token budget check
+# hermes cron create --name "paladin-budget-watch" \
+#   "0 6 * * 1" "Check renewals, invoices, and token budget vs provider bill; flag over-threshold or untagged spend."
 
-# Necromancer — backup verification beats
-#   hermes cron create --profile necromancer "0 4 * * *" "Verify the latest backup and run/confirm the restore test; update restore proof age."
+# 7. Paladin — Weekly claims audit (anti-hallucination verification)
+# hermes cron create --name "paladin-claims-audit" \
+#   "30 6 * * 1" "Audit recently closed cards and cross-check claims against attached evidence citations; bounce ungrounded claims with reason ungrounded_claim."
 
-# Warrior — platform and ADB operational watch
-#   hermes cron create --profile warrior "0 */3 * * *" "Check platform and Oracle ADB health; open Keep tickets for drift or risk."
+# 8. Warrior — Platform and Oracle ADB operational health watch
+# hermes cron create --name "warrior-platform-watch" \
+#   "0 */3 * * *" "Check platform health, connection pools, and Oracle ADB metrics; open Keep tickets for drift or risk."
+
+# 9. Rogue — OSINT and public exposure beats
+# hermes cron create --name "rogue-osint-beat" \
+#   "0 */6 * * *" "Run exposure and brand-signal beats; package findings with evidence and route to Watch Inbox."
 
 echo "Uncomment and run the commands above, or use: hermes cron create"
